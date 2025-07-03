@@ -1,6 +1,6 @@
 # 3D Solar System Simulation
 
-![Solar System Preview](./demo/demo.mp4)
+![Solar System Preview](./demo/demo.gif)
 
 An interactive 3D visualization of our solar system built with Three.js.
 
