@@ -22,6 +22,7 @@
             height: 100%;
         }
         
+        /* Main UI Container - Desktop */
         #ui-container {
             position: absolute;
             bottom: 20px;
@@ -37,6 +38,38 @@
             max-width: 95%;
             margin: 0 auto;
             transition: background-color 0.3s;
+        }
+        
+        /* Compact Mobile UI */
+        #mobile-ui {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 8px;
+            flex-direction: column;
+            gap: 6px;
+            max-width: 120px;
+        }
+        
+        #mobile-controls-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            text-align: center;
+        }
+        
+        #mobile-controls-content {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
         }
         
         .control-group {
@@ -71,13 +104,14 @@
         }
         
         button {
-            padding: 8px 15px;
+            padding: 6px 10px;
             border: none;
             border-radius: 5px;
             background-color: #444;
             color: white;
             cursor: pointer;
             transition: background-color 0.2s;
+            font-size: 12px;
         }
         
         button:hover {
@@ -99,17 +133,31 @@
             color: #121212;
         }
         
-        .light-mode #ui-container {
+        .light-mode #ui-container,
+        .light-mode #mobile-ui {
             background-color: rgba(255, 255, 255, 0.7);
             color: #121212;
         }
         
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
+            #ui-container {
+                display: none;
+            }
+            
+            #mobile-ui {
+                display: flex;
+            }
+            
             .planet-control {
                 min-width: 60px;
             }
             
             label {
+                font-size: 10px;
+            }
+            
+            button {
+                padding: 4px 8px;
                 font-size: 10px;
             }
         }
@@ -119,6 +167,7 @@
     <div id="canvas-container"></div>
     <div id="planet-label"></div>
     
+    <!-- Desktop UI -->
     <div id="ui-container">
         <div class="control-group" id="speed-controls">
             <!-- Planet speed controls will be added here by JavaScript -->
@@ -127,6 +176,18 @@
         <div class="button-group">
             <button id="pause-btn">Pause</button>
             <button id="theme-toggle">Dark Mode</button>
+        </div>
+    </div>
+    
+    <!-- Mobile UI -->
+    <div id="mobile-ui">
+        <button id="mobile-controls-toggle">☰</button>
+        <div id="mobile-controls-content">
+            <div id="mobile-speed-controls"></div>
+            <div class="button-group">
+                <button id="mobile-pause-btn">Pause</button>
+                <button id="mobile-theme-toggle">Dark</button>
+            </div>
         </div>
     </div>
 
@@ -286,20 +347,31 @@
             });
         });
         
-        // Create speed controls UI
+        // Create speed controls UI for desktop
         const speedControlsContainer = document.getElementById('speed-controls');
+        const mobileSpeedControlsContainer = document.getElementById('mobile-speed-controls');
         
         planets.forEach((planet, index) => {
+            // Desktop controls
+            const controlDiv = createPlanetControl(planet, index);
+            speedControlsContainer.appendChild(controlDiv);
+            
+            // Mobile controls
+            const mobileControlDiv = createPlanetControl(planet, index, true);
+            mobileSpeedControlsContainer.appendChild(mobileControlDiv);
+        });
+        
+        function createPlanetControl(planet, index, isMobile = false) {
             const controlDiv = document.createElement('div');
             controlDiv.className = 'planet-control';
             
             const label = document.createElement('label');
-            label.textContent = planet.name;
-            label.htmlFor = `speed-${index}`;
+            label.textContent = isMobile ? planet.name.substring(0, 3) : planet.name;
+            label.htmlFor = `speed-${index}${isMobile ? '-mobile' : ''}`;
             
             const input = document.createElement('input');
             input.type = 'range';
-            input.id = `speed-${index}`;
+            input.id = `speed-${index}${isMobile ? '-mobile' : ''}`;
             input.min = '0';
             input.max = '2';
             input.step = '0.01';
@@ -307,18 +379,35 @@
             
             const valueDisplay = document.createElement('span');
             valueDisplay.textContent = '1x';
-            valueDisplay.style.fontSize = '12px';
+            valueDisplay.style.fontSize = isMobile ? '10px' : '12px';
             
             input.addEventListener('input', () => {
                 const speedMultiplier = parseFloat(input.value);
                 planets[index].currentSpeed = planet.originalSpeed * speedMultiplier;
                 valueDisplay.textContent = `${speedMultiplier.toFixed(2)}x`;
+                
+                // Sync both controls if they exist
+                const otherInputId = isMobile ? `speed-${index}` : `speed-${index}-mobile`;
+                const otherInput = document.getElementById(otherInputId);
+                if (otherInput) {
+                    otherInput.value = input.value;
+                    const otherDisplay = otherInput.nextElementSibling;
+                    if (otherDisplay) otherDisplay.textContent = valueDisplay.textContent;
+                }
             });
             
             controlDiv.appendChild(label);
             controlDiv.appendChild(input);
             controlDiv.appendChild(valueDisplay);
-            speedControlsContainer.appendChild(controlDiv);
+            return controlDiv;
+        }
+        
+        // Mobile UI toggle
+        const mobileToggle = document.getElementById('mobile-controls-toggle');
+        const mobileContent = document.getElementById('mobile-controls-content');
+        
+        mobileToggle.addEventListener('click', () => {
+            mobileContent.style.display = mobileContent.style.display === 'flex' ? 'none' : 'flex';
         });
         
         // Planet label on hover
@@ -357,20 +446,34 @@
         
         // Pause/Resume functionality
         let isPaused = false;
-        const pauseBtn = document.getElementById('pause-btn');
+        const pauseBtns = [
+            document.getElementById('pause-btn'),
+            document.getElementById('mobile-pause-btn')
+        ];
         
-        pauseBtn.addEventListener('click', () => {
-            isPaused = !isPaused;
-            pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+        pauseBtns.forEach(btn => {
+            if (btn) btn.addEventListener('click', () => {
+                isPaused = !isPaused;
+                pauseBtns.forEach(b => {
+                    if (b) b.textContent = isPaused ? 'Resume' : 'Pause';
+                });
+            });
         });
         
         // Dark/Light mode toggle
-        const themeToggle = document.getElementById('theme-toggle');
+        const themeToggles = [
+            document.getElementById('theme-toggle'),
+            document.getElementById('mobile-theme-toggle')
+        ];
         
-        themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('light-mode');
-            const isLightMode = document.body.classList.contains('light-mode');
-            themeToggle.textContent = isLightMode ? 'Dark Mode' : 'Light Mode';
+        themeToggles.forEach(toggle => {
+            if (toggle) toggle.addEventListener('click', () => {
+                document.body.classList.toggle('light-mode');
+                const isLightMode = document.body.classList.contains('light-mode');
+                themeToggles.forEach(t => {
+                    if (t) t.textContent = isLightMode ? 'Light' : 'Dark';
+                });
+            });
         });
         
         // Handle window resize
