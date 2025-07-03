@@ -14,6 +14,7 @@
             color: white;
             background-color: #121212;
             transition: background-color 0.3s;
+            -webkit-tap-highlight-color: transparent;
         }
         
         #canvas-container {
@@ -38,6 +39,7 @@
             max-width: 95%;
             margin: 0 auto;
             transition: background-color 0.3s;
+            backdrop-filter: blur(5px);
         }
         
         /* Compact Mobile UI */
@@ -53,6 +55,7 @@
             flex-direction: column;
             gap: 6px;
             max-width: 120px;
+            backdrop-filter: blur(5px);
         }
         
         #mobile-controls-toggle {
@@ -64,6 +67,11 @@
             padding: 0;
             margin: 0;
             text-align: center;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         #mobile-controls-content {
@@ -126,6 +134,7 @@
             pointer-events: none;
             display: none;
             z-index: 200;
+            backdrop-filter: blur(5px);
         }
         
         .light-mode {
@@ -192,12 +201,21 @@
     </div>
 
     <script>
+        // HD Renderer Setup
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            powerPreference: "high-performance"
+        });
+        
+        // Set device pixel ratio for HD rendering
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2x for performance
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        
         // Scene setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
         
         // Add orbit controls for camera movement
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -207,34 +225,38 @@
         // Position camera
         camera.position.z = 50;
         
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040);
+        // Enhanced Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
         scene.add(ambientLight);
         
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
         directionalLight.position.set(5, 3, 5);
         scene.add(directionalLight);
         
-        // Create starfield background
+        // Create HD starfield background
         function createStarfield() {
             const starsGeometry = new THREE.BufferGeometry();
-            const starCount = 5000;
+            const starCount = 10000;
             const positions = new Float32Array(starCount * 3);
+            const sizes = new Float32Array(starCount);
             
             for (let i = 0; i < starCount; i++) {
                 const i3 = i * 3;
                 positions[i3] = (Math.random() - 0.5) * 2000;
                 positions[i3 + 1] = (Math.random() - 0.5) * 2000;
                 positions[i3 + 2] = (Math.random() - 0.5) * 2000;
+                sizes[i] = Math.random() * 1.5;
             }
             
             starsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            starsGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
             
             const starsMaterial = new THREE.PointsMaterial({
                 color: 0xffffff,
                 size: 0.5,
                 transparent: true,
-                opacity: 0.8
+                opacity: 0.9,
+                sizeAttenuation: true
             });
             
             const starField = new THREE.Points(starsGeometry, starsMaterial);
@@ -243,34 +265,34 @@
         
         createStarfield();
         
-        // Planetary data - relative sizes and distances (not to scale for visibility)
+        // Planetary data with enhanced visuals
         const planetsData = [
-            { name: "Mercury", color: 0x8B8B8B, size: 0.4, distance: 10, speed: 0.02 },
-            { name: "Venus", color: 0xE6C229, size: 0.6, distance: 15, speed: 0.015 },
-            { name: "Earth", color: 0x6B93D6, size: 0.6, distance: 20, speed: 0.01 },
-            { name: "Mars", color: 0x993D00, size: 0.5, distance: 25, speed: 0.008 },
-            { name: "Jupiter", color: 0xB07F35, size: 1.2, distance: 35, speed: 0.004 },
-            { name: "Saturn", color: 0xDCD0A1, size: 1.0, distance: 45, speed: 0.003, hasRings: true },
-            { name: "Uranus", color: 0xC1E3E3, size: 0.8, distance: 55, speed: 0.002 },
-            { name: "Neptune", color: 0x5B5DDF, size: 0.8, distance: 65, speed: 0.001 }
+            { name: "Mercury", color: 0x8B8B8B, size: 0.4, distance: 10, speed: 0.02, segments: 64 },
+            { name: "Venus", color: 0xE6C229, size: 0.6, distance: 15, speed: 0.015, segments: 64 },
+            { name: "Earth", color: 0x6B93D6, size: 0.6, distance: 20, speed: 0.01, segments: 64 },
+            { name: "Mars", color: 0x993D00, size: 0.5, distance: 25, speed: 0.008, segments: 64 },
+            { name: "Jupiter", color: 0xB07F35, size: 1.2, distance: 35, speed: 0.004, segments: 64 },
+            { name: "Saturn", color: 0xDCD0A1, size: 1.0, distance: 45, speed: 0.003, segments: 64, hasRings: true },
+            { name: "Uranus", color: 0xC1E3E3, size: 0.8, distance: 55, speed: 0.002, segments: 64 },
+            { name: "Neptune", color: 0x5B5DDF, size: 0.8, distance: 65, speed: 0.001, segments: 64 }
         ];
         
-        // Create the Sun
-        const sunGeometry = new THREE.SphereGeometry(2, 32, 32);
+        // Create the Sun with enhanced geometry
+        const sunGeometry = new THREE.SphereGeometry(2, 64, 64);
         const sunMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xffff00,
             emissive: 0xffff00,
-            emissiveIntensity: 1
+            emissiveIntensity: 1.2
         });
         const sun = new THREE.Mesh(sunGeometry, sunMaterial);
         scene.add(sun);
         
-        // Add glow effect to the Sun
-        const sunGlowGeometry = new THREE.SphereGeometry(2.2, 32, 32);
+        // Sun glow effect
+        const sunGlowGeometry = new THREE.SphereGeometry(2.3, 32, 32);
         const sunGlowMaterial = new THREE.MeshBasicMaterial({
             color: 0xffff00,
             transparent: true,
-            opacity: 0.3
+            opacity: 0.25
         });
         const sunGlow = new THREE.Mesh(sunGlowGeometry, sunGlowMaterial);
         scene.add(sunGlow);
@@ -281,25 +303,26 @@
         const orbitLines = [];
         
         planetsData.forEach((planetData, index) => {
-            // Create planet
-            const geometry = new THREE.SphereGeometry(planetData.size, 32, 32);
+            // Create planet with more segments for smoother appearance
+            const geometry = new THREE.SphereGeometry(planetData.size, planetData.segments, planetData.segments);
             const material = new THREE.MeshPhongMaterial({ 
                 color: planetData.color,
-                shininess: 10
+                shininess: 10,
+                specular: 0x111111
             });
             const planet = new THREE.Mesh(geometry, material);
             
-            // Create orbit line (perfect circle in the ecliptic plane)
+            // Create smoother orbit line with more segments
             const orbitGeometry = new THREE.BufferGeometry();
             const orbitPoints = [];
             const orbitRadius = planetData.distance;
-            const segments = 64;
+            const segments = 128; // Increased for smoother circles
             
             for (let i = 0; i <= segments; i++) {
                 const angle = (i / segments) * Math.PI * 2;
                 orbitPoints.push(new THREE.Vector3(
                     Math.cos(angle) * orbitRadius,
-                    0,  // All orbits in the same plane (y = 0)
+                    0,
                     Math.sin(angle) * orbitRadius
                 ));
             }
@@ -308,7 +331,8 @@
             const orbitMaterial = new THREE.LineBasicMaterial({ 
                 color: 0x555555,
                 transparent: true,
-                opacity: 0.3
+                opacity: 0.3,
+                linewidth: 1
             });
             const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
             scene.add(orbitLine);
@@ -323,14 +347,19 @@
             scene.add(planet);
             planetMeshes.push(planet);
             
-            // Create rings for Saturn
+            // Create rings for Saturn with more segments
             if (planetData.hasRings) {
-                const ringGeometry = new THREE.RingGeometry(planetData.size * 1.5, planetData.size * 1.8, 32);
+                const ringGeometry = new THREE.RingGeometry(
+                    planetData.size * 1.5, 
+                    planetData.size * 1.8, 
+                    64
+                );
                 const ringMaterial = new THREE.MeshPhongMaterial({
                     color: 0xDCD0A1,
                     side: THREE.DoubleSide,
                     transparent: true,
-                    opacity: 0.8
+                    opacity: 0.8,
+                    shininess: 30
                 });
                 const ring = new THREE.Mesh(ringGeometry, ringMaterial);
                 ring.rotation.x = Math.PI / 3;
@@ -347,7 +376,7 @@
             });
         });
         
-        // Create speed controls UI for desktop
+        // Create speed controls UI for desktop and mobile
         const speedControlsContainer = document.getElementById('speed-controls');
         const mobileSpeedControlsContainer = document.getElementById('mobile-speed-controls');
         
@@ -410,15 +439,21 @@
             mobileContent.style.display = mobileContent.style.display === 'flex' ? 'none' : 'flex';
         });
         
-        // Planet label on hover
+        // Enhanced planet label on hover with touch support
         const planetLabel = document.getElementById('planet-label');
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         
-        function onMouseMove(event) {
-            // Calculate mouse position in normalized device coordinates
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        function onPointerMove(event) {
+            // Get coordinates whether mouse or touch
+            const x = event.clientX || (event.touches && event.touches[0].clientX);
+            const y = event.clientY || (event.touches && event.touches[0].clientY);
+            
+            if (x === undefined || y === undefined) return;
+            
+            // Calculate normalized device coordinates
+            mouse.x = (x / window.innerWidth) * 2 - 1;
+            mouse.y = -(y / window.innerHeight) * 2 + 1;
             
             // Update the raycaster
             raycaster.setFromCamera(mouse, camera);
@@ -433,8 +468,8 @@
                 if (planetIndex !== -1) {
                     planetLabel.textContent = planetsData[planetIndex].name;
                     planetLabel.style.display = 'block';
-                    planetLabel.style.left = `${event.clientX + 10}px`;
-                    planetLabel.style.top = `${event.clientY + 10}px`;
+                    planetLabel.style.left = `${x + 10}px`;
+                    planetLabel.style.top = `${y + 10}px`;
                     return;
                 }
             }
@@ -442,7 +477,8 @@
             planetLabel.style.display = 'none';
         }
         
-        window.addEventListener('mousemove', onMouseMove, false);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('touchmove', onPointerMove, { passive: true });
         
         // Pause/Resume functionality
         let isPaused = false;
@@ -476,12 +512,17 @@
             });
         });
         
-        // Handle window resize
-        window.addEventListener('resize', () => {
+        // Handle window resize with HD considerations
+        function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
+            
+            // Update renderer with current pixel ratio
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        }
+        
+        window.addEventListener('resize', onWindowResize);
         
         // Animation loop
         function animate() {
@@ -500,7 +541,7 @@
                     planet.mesh.rotation.y += 0.01;
                 });
                 
-                // Rotate sun
+                // Rotate sun and glow
                 sun.rotation.y += 0.005;
                 sunGlow.rotation.y += 0.005;
             }
